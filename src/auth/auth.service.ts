@@ -6,14 +6,16 @@ import {
 } from '@nestjs/common';
 import { AuthDto } from './dto';
 import { Tokens } from './types';
-import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
+import * as argon from 'argon2';
+
 @Injectable()
 export class AuthService {
   constructor(private prisma: PrismaService, private jwtService: JwtService) {}
   async signupLocal(dto: AuthDto): Promise<Tokens> {
-    const hash = await this.hashData(dto.password);
+    const hash = await argon.hash(dto.password);
+
     console.log('hash', hash);
 
     try {
@@ -45,7 +47,7 @@ export class AuthService {
     });
     if (!user)
       throw new ForbiddenException('Access Denied, you are not a user ');
-    const passwordMatches = await bcrypt.compare(dto.password, user.hash);
+    const passwordMatches = await argon.verify(user.hash, dto.password);
     if (!passwordMatches)
       throw new ForbiddenException('Access Denied, incorrect password ');
     const tokens = await this.getTokens(user.id, user.email);
@@ -63,11 +65,13 @@ export class AuthService {
     // console.log('rt', rt);
     // console.log('user.hashRt', user.hashRt);
 
-    if (!user) throw new ForbiddenException('Access Denied');
-    const rtMatches = await bcrypt.compare(rt, user.hashRt);
+    if (!user || !user.hashRt) throw new ForbiddenException('Access Denied');
+    const rtMatches = await argon.verify(user.hashRt, rt);
     if (!rtMatches) throw new ForbiddenException('Access Denied');
+
     const tokens = await this.getTokens(user.id, user.email);
     await this.updateRtHash(user.id, tokens.refresh_token);
+
     return tokens;
   }
 
@@ -85,9 +89,6 @@ export class AuthService {
     });
   }
 
-  hashData(data) {
-    return bcrypt.hash(data, 10);
-  }
   async getTokens(userId: number, email: string) {
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(
@@ -119,7 +120,7 @@ export class AuthService {
   }
 
   async updateRtHash(userId: number, rt: string) {
-    const hash = await this.hashData(rt);
+    const hash = await argon.hash(rt);
     await this.prisma.user.update({
       where: {
         id: userId,
