@@ -1,4 +1,4 @@
-import { GetCurrentUser, GetCurrentUserId } from './common/decorators';
+import { GetCurrentUser, GetCurrentUserId, Public } from './common/decorators';
 import { AtGuard } from './common/guards/at.guard';
 import { RtGuard } from './common/guards/rt.guard';
 import {
@@ -20,27 +20,29 @@ import { Request } from 'express';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('local/signup')
   @HttpCode(HttpStatus.CREATED)
   signupLocal(@Body() dto: AuthDto): Promise<Tokens> {
     return this.authService.signupLocal(dto);
   }
-  @HttpCode(HttpStatus.OK)
+
+  @Public()
   @Post('local/signin')
+  @HttpCode(HttpStatus.OK)
   signinLocal(@Body() dto: AuthDto): Promise<Tokens> {
     return this.authService.signinLocal(dto);
   }
 
-  @UseGuards(AtGuard)
-  @HttpCode(HttpStatus.OK)
   @Post('logout')
+  @HttpCode(HttpStatus.OK)
   logout(@GetCurrentUserId() userId: number) {
     return this.authService.logout(userId);
   }
 
   @UseGuards(RtGuard)
-  @HttpCode(HttpStatus.OK)
   @Post('refresh')
+  @HttpCode(HttpStatus.OK)
   refreshTokens(
     @GetCurrentUserId() userId: number,
     @GetCurrentUser('refreshToken') refreshToken: string,
