@@ -1,3 +1,6 @@
+import { GetCurrentUser, GetCurrentUserId } from './common/decorators';
+import { AtGuard } from './common/guards/at.guard';
+import { RtGuard } from './common/guards/rt.guard';
 import {
   Body,
   Controller,
@@ -28,20 +31,20 @@ export class AuthController {
     return this.authService.signinLocal(dto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AtGuard)
   @HttpCode(HttpStatus.OK)
   @Post('logout')
-  logout(@Req() req: Request) {
-    const user = req.user;
-    return this.authService.logout(user['sub']);
+  logout(@GetCurrentUserId() userId: number) {
+    return this.authService.logout(userId);
   }
 
-  @UseGuards(AuthGuard('jwt-refresh'))
+  @UseGuards(RtGuard)
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  refreshTokens(@Req() req: Request) {
-    const user = req.user;
-    console.log(user);
-    return this.authService.refreshTokens(user['sub'], user['refreshToken']);
+  refreshTokens(
+    @GetCurrentUserId() userId: number,
+    @GetCurrentUser('refreshToken') refreshToken: string,
+  ) {
+    return this.authService.refreshTokens(userId, refreshToken);
   }
 }
